@@ -6,3 +6,10 @@ edition = "2024_07"
 [dependencies]
 starknet = "2.18.0"
 openzeppelin = { git = "https://github.com/OpenZeppelin/cairo-contracts.git", tag = "v4.0.1" }
+[dev-dependencies]
+snforge_std = "0.64.0"
+[tool.scarb]
+allow-prebuilt-plugins = ["snforge_std"]
+[[target.starknet-contract]]
+sierra = true
+casm = true
