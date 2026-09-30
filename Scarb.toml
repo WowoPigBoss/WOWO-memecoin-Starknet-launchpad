@@ -2,6 +2,7 @@
 name = "wowo_launchpad"
 version = "0.1.0"
 edition = "2024_07"
+license = "MIT"
 
 [dependencies]
 starknet = "2.18.0"
