@@ -45,3 +45,5 @@ mod WowoToken {
         self.erc20.mint(recipient, TOTAL_SUPPLY);
     }
 }
+mod launchpad_token;
+mod wowo_reward;
