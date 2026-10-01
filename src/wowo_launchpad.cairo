@@ -26,7 +26,7 @@ mod WowoLaunchpad {
                 self.treasury.write(treasury);
                     self.fee_strk.write(fee_strk);
                         self.wowo_per_strk.write(wowo_per_strk);
-    }
+   self.admin.write(admin); }
 
     #[external(v0)]
     fn get_wowo_token(self: @ContractState) -> ContractAddress {
@@ -47,8 +47,15 @@ fn get_wowo_per_strk(self: @ContractState) -> u256 {
         self.wowo_per_strk.read()
 }
     #[external(v0)]
-    fn get_fee_wowo(self: @ContractState) -> u256 {
-        self.fee_wowo.read()
+    fn set_wowo_per_strk(
+            ref self: ContractState,
+                new_rate: u256,
+    ) {
+            let caller = get_caller_address();
+
+                assert(caller == self.admin.read(), 'NOT_ADMIN');
+
+                    self.wowo_per_strk.write(new_rate);
     }
 
 #[external(v0)]
