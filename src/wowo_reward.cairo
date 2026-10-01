@@ -44,23 +44,24 @@ mod WowoReward {
 
     #[external(v0)]
     fn register(
-        ref self: ContractState,
+            ref self: ContractState,
     ) {
-        let caller = starknet::get_caller_address();
+            let caller = starknet::get_caller_address();
 
-        let wowo = IERC20BalanceOfDispatcher {
-            contract_address: self.wowo_token.read()
-        };
+                let wowo = IERC20BalanceOfDispatcher {
+                            contract_address: self.wowo_token.read()
+                };
 
-        let balance = wowo.balance_of(caller);
+                    let balance = wowo.balance_of(caller);
+                        let current = starknet::get_block_timestamp();
+                            let start = self.holding_start.entry(caller).read();
 
-        let current = starknet::get_block_timestamp();
-
-        if balance >= self.min_balance.read() {
-            self.holding_start.entry(caller).write(current);
-        }
+                                if balance < self.min_balance.read() {
+                                            self.holding_start.entry(caller).write(0);
+                                } else if start == 0 {
+                                            self.holding_start.entry(caller).write(current);
+                                }
     }
-
     #[external(v0)]
     fn get_admin(
         self: @ContractState,
