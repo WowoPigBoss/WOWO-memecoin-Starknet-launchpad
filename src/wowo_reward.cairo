@@ -68,4 +68,33 @@ mod WowoReward {
     ) -> ContractAddress {
         self.admin.read()
     }
+
+    #[external(v0)]
+    fn get_min_balance(
+        self: @ContractState,
+    ) -> u256 {
+        self.min_balance.read()
+    }
+
+    #[external(v0)]
+    fn get_holding_period(
+        self: @ContractState,
+    ) -> u64 {
+        self.holding_period.read()
+    }
+
+    #[external(v0)]
+    fn get_daily_rate(
+        self: @ContractState,
+    ) -> u256 {
+        self.daily_rate.read()
+    }
+
+    #[external(v0)]
+    fn get_holding_start(
+        self: @ContractState,
+        account: ContractAddress,
+    ) -> u64 {
+        self.holding_start.entry(account).read()
+    }
 }
