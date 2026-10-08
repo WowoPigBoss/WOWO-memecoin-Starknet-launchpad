@@ -80,6 +80,7 @@ pub mod WowoLiquidityLock {
                                     #[storage]
                                         struct Storage {
                                                     position_nft: ContractAddress,
+        entered: bool,
                                                             next_lock_id: u64,
 
                                                                     creators: Map<u64, ContractAddress>,
@@ -87,6 +88,7 @@ pub mod WowoLiquidityLock {
                                                                                     start_times: Map<u64, u64>,
                                                                                             unlock_times: Map<u64, u64>,
                                                                                                     active: Map<u64, bool>,
+        reentrancy_guard: bool,
                                         }
 
                                             #[event]
@@ -141,6 +143,7 @@ pub mod WowoLiquidityLock {
                                                                                                                                             duration: u64,
                                                                                                     ) -> u64 {
                                                                                                                     validate_duration(duration);
+            assert(!self.reentrancy_guard.read(), 'REENTRANCY_BLOCKED'); self.reentrancy_guard.write(true);
 
                                                                                                                                 let creator = get_caller_address();
                                                                                                                                             let now = get_block_timestamp();
