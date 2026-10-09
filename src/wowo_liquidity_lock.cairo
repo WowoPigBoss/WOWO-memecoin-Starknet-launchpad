@@ -170,6 +170,7 @@ pub mod WowoLiquidityLock {
                                                                                                                                                                                                                                                         get_contract_address(),
                                                                                                                                                                                                                                                                         token_id,
                                                                                                                                                                                                                     );
+            self.reentrancy_guard.write(false);
 
 
 
