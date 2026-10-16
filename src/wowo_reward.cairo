@@ -1,6 +1,11 @@
 #[starknet::interface]
 trait IERC20BalanceOf<TState> {
     fn balance_of(self: @TState, account: starknet::ContractAddress) -> u256;
+    fn transfer(
+        ref self: TState,
+        recipient: starknet::ContractAddress,
+        amount: u256
+    ) -> bool;
 }
 
 
@@ -156,6 +161,12 @@ mod WowoReward {
         self.claimed.entry(caller).write(already_claimed + reward);
         self.total_claimed.write(total_claimed + reward);
         self.last_claim.entry(caller).write(current);
+
+        let reward_token = IERC20BalanceOfDispatcher {
+            contract_address: self.reward_token.read()
+        };
+        let transferred = reward_token.transfer(caller, reward);
+        assert(transferred, 'TRANSFER_FAILED');
 
         reward
     }

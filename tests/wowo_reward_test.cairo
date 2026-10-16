@@ -215,6 +215,8 @@ fn test_claim_reward_after_seven_days() {
 
     start_cheat_block_timestamp(contract_address, 1_604_800);
 
+    mock_call(reward_token, selector!("transfer"), true, 1);
+
     let amount = reward.claim_reward();
 
     assert(amount == 70_u256, 'wrong reward amount');
