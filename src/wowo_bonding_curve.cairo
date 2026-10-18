@@ -22,6 +22,7 @@ pub trait IWowoBondingCurve<TContractState> {
         strk_reserve: u256,
         token_amount: u256,
     ) -> u256;
+    fn calculate_fee(self: @TContractState, amount: u256) -> u256;
 }
 
 #[starknet::contract]
@@ -87,5 +88,10 @@ pub mod WowoBondingCurve {
             (strk_reserve * token_amount)
                 / (token_reserve + token_amount)
         }
+    fn calculate_fee(self: @ContractState, amount: u256) -> u256 {
+        assert(amount > 0, 'INVALID_AMOUNT');
+        (amount + 99) / 100
     }
+
+        }
 }
