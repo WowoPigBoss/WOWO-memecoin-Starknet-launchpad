@@ -1,8 +1,9 @@
 #[starknet::contract]
 mod WowoLaunchpad {
-    use openzeppelin_interfaces::erc20::IERC20Dispatcher;
-    use openzeppelin_token::erc20::utils::SafeERC20DispatcherTrait;
+    use openzeppelin::interfaces::erc20::{IERC20Dispatcher, IERC20DispatcherTrait};
+    use openzeppelin::token::erc20::SafeERC20DispatcherTrait;
     use starknet::{ContractAddress, get_caller_address};
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
 
     #[storage]
     struct Storage {

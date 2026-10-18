@@ -35,3 +35,4 @@ mod launchpad_token;
 mod wowo_reward;
 mod wowo_liquidity_lock;
 pub mod wowo_bonding_curve;
+mod wowo_launchpad;
