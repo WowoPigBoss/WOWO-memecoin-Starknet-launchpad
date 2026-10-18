@@ -34,4 +34,4 @@ mod WowoToken {
 mod launchpad_token;
 mod wowo_reward;
 mod wowo_liquidity_lock;
-mod wowo_bonding_curve;
+pub mod wowo_bonding_curve;

@@ -8,20 +8,31 @@ pub trait IWowoBondingCurve<TContractState> {
         virtual_strk_reserve: u256,
         token_amount: u256,
     ) -> u256;
+
+    fn get_buy_cost(
+        self: @TContractState,
+        token_reserve: u256,
+        strk_reserve: u256,
+        token_amount: u256,
+    ) -> u256;
+
+    fn get_sell_return(
+        self: @TContractState,
+        token_reserve: u256,
+        strk_reserve: u256,
+        token_amount: u256,
+    ) -> u256;
 }
 
 #[starknet::contract]
 pub mod WowoBondingCurve {
     use super::IWowoBondingCurve;
-    use core::starknet::storage::Map;
-    use starknet::storage::{StoragePointerWriteAccess, StorageMapReadAccess, StorageMapWriteAccess};
+    use starknet::storage::StoragePointerWriteAccess;
     use starknet::ContractAddress;
 
     #[storage]
     struct Storage {
         admin: ContractAddress,
-        token_reserves: Map<ContractAddress, u256>,
-        strk_reserves: Map<ContractAddress, u256>,
     }
 
     #[constructor]
@@ -46,6 +57,35 @@ pub mod WowoBondingCurve {
 
             (virtual_strk_reserve * token_amount)
                 / virtual_token_reserve
+        }
+
+        fn get_buy_cost(
+            self: @ContractState,
+            token_reserve: u256,
+            strk_reserve: u256,
+            token_amount: u256,
+        ) -> u256 {
+            assert(token_reserve > 0, 'INVALID_TOKEN_RESERVE');
+            assert(strk_reserve > 0, 'INVALID_STRK_RESERVE');
+            assert(token_amount > 0, 'INVALID_AMOUNT');
+            assert(token_amount < token_reserve, 'INSUFFICIENT_TOKEN_RESERVE');
+
+            (strk_reserve * token_amount)
+                / (token_reserve - token_amount)
+        }
+
+        fn get_sell_return(
+            self: @ContractState,
+            token_reserve: u256,
+            strk_reserve: u256,
+            token_amount: u256,
+        ) -> u256 {
+            assert(token_reserve > 0, 'INVALID_TOKEN_RESERVE');
+            assert(strk_reserve > 0, 'INVALID_STRK_RESERVE');
+            assert(token_amount > 0, 'INVALID_AMOUNT');
+
+            (strk_reserve * token_amount)
+                / (token_reserve + token_amount)
         }
     }
 }
