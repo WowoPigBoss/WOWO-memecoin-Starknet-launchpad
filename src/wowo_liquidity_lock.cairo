@@ -195,60 +195,54 @@ pub mod WowoLiquidityLock {
                                                                                                     }
 
                                                                                                             fn withdraw(
-                                                                                                                            ref self: ContractState,
-                                                                                                                                        lock_id: u64,
-                                                                                                            ) {
-                                                                                                                            let caller = get_caller_address();
-                                                                                                                                        let now = get_block_timestamp();
+    ref self: ContractState,
+    lock_id: u64,
+) {
+    assert(!self.reentrancy_guard.read(), 'REENTRANCY_BLOCKED');
 
-                                                                                                                                                    assert(
-                                                                                                                                                                        self.active.read(lock_id),
-                                                                                                                                                                                        'LOCK_NOT_ACTIVE',
-                                                                                                                                                    );
+    let caller = get_caller_address();
+    let now = get_block_timestamp();
 
-                                                                                                                                                                let creator = self.creators.read(lock_id);
+    assert(self.active.read(lock_id), 'LOCK_NOT_ACTIVE');
 
-                                                                                                                                                                            assert(
-                                                                                                                                                                                                creator == caller,
-                                                                                                                                                                                                                'NOT_CREATOR',
-                                                                                                                                                                            );
+    let creator = self.creators.read(lock_id);
+    assert(creator == caller, 'NOT_CREATOR');
 
-                                                                                                                                                                                        let unlock_time = self.unlock_times.read(lock_id);
+    let unlock_time = self.unlock_times.read(lock_id);
+    assert(now >= unlock_time, 'LOCK_NOT_EXPIRED');
 
-                                                                                                                                                                                                    assert(
-                                                                                                                                                                                                                        now >= unlock_time,
-                                                                                                                                                                                                                                        'LOCK_NOT_EXPIRED',
-                                                                                                                                                                                                    );
+    let position_id = self.position_ids.read(lock_id);
 
-                                                                                                                                                                                                                let position_id = self.position_ids.read(lock_id);
+    self.reentrancy_guard.write(true);
+    self.active.write(lock_id, false);
 
-                                                                                                                                                                                                                            let nft = IEkuboPositionNFTDispatcher {
-                                                                                                                                                                                                                                                contract_address: self.position_nft.read(),
-                                                                                                                                                                                                                            };
+    let nft = IEkuboPositionNFTDispatcher {
+        contract_address: self.position_nft.read(),
+    };
 
-                                                                                                                                                                                                                                        let token_id = u256 {
-                                                                                                                                                                                                                                                            low: position_id.into(),
-                                                                                                                                                                                                                                                                            high: 0,
-                                                                                                                                                                                                                                        };
+    let token_id = u256 {
+        low: position_id.into(),
+        high: 0,
+    };
 
-                                                                                                                                                                                                                                                    nft.transfer_from(
-                                                                                                                                                                                                                                                                        get_contract_address(),
-                                                                                                                                                                                                                                                                                        caller,
-                                                                                                                                                                                                                                                                                                        token_id,
-                                                                                                                                                                                                                                                    );
+    nft.transfer_from(
+        get_contract_address(),
+        caller,
+        token_id,
+    );
 
-                                                                                                                                                                                                                                                                self.active.write(lock_id, false);
+    self.reentrancy_guard.write(false);
 
-                                                                                                                                                                                                                                                                            self.emit(
-                                                                                                                                                                                                                                                                                                PositionUnlocked {
-                                                                                                                                                                                                                                                                                                                        lock_id,
-                                                                                                                                                                                                                                                                                                                                            creator,
-                                                                                                                                                                                                                                                                                                                                                                position_id,
-                                                                                                                                                                                                                                                                                                },
-                                                                                                                                                                                                                                                                            );
-                                                                                                            }
+    self.emit(
+        PositionUnlocked {
+            lock_id,
+            creator,
+            position_id,
+        },
+    );
+}
 
-                                                                                                                    fn get_creator(
+fn get_creator(
                                                                                                                                     self: @ContractState,
                                                                                                                                                 lock_id: u64,
                                                                                                                     ) -> ContractAddress {
