@@ -8,6 +8,7 @@ mod WowoLaunchpad {
     #[storage]
     struct Storage {
             wowo_token: ContractAddress,
+        strk_token: ContractAddress,
                 treasury: ContractAddress,
                     fee_strk: u256,
                         wowo_per_strk: u256,
@@ -18,12 +19,14 @@ mod WowoLaunchpad {
     fn constructor(
             ref self: ContractState,
                 wowo_token: ContractAddress,
+        strk_token: ContractAddress,
                     treasury: ContractAddress,
                         fee_strk: u256,
                             wowo_per_strk: u256,
                                 admin: ContractAddress,
     ) {
             self.wowo_token.write(wowo_token);
+        self.strk_token.write(strk_token);
                 self.treasury.write(treasury);
                     self.fee_strk.write(fee_strk);
                         self.wowo_per_strk.write(wowo_per_strk);
@@ -77,4 +80,15 @@ fn pay_fee(
                                                 fee_wowo
                     );
 }
-            }
+
+    #[external(v0)]
+    fn pay_fee_strk(self: @ContractState) {
+        let sender = get_caller_address();
+        let fee = (self.fee_strk.read() * 110_u256 + 99_u256) / 100_u256;
+        let strk = IERC20Dispatcher {
+            contract_address: self.strk_token.read()
+        };
+        strk.assert_transfer_from(sender, self.treasury.read(), fee);
+    }
+
+}
