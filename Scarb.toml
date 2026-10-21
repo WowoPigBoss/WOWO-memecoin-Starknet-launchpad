@@ -14,3 +14,7 @@ allow-prebuilt-plugins = ["snforge_std"]
 [[target.starknet-contract]]
 sierra = true
 casm = true
+[profile.dev.cairo]
+unstable-add-statements-functions-debug-info = true
+unstable-add-statements-code-locations-debug-info = true
+panic-backtrace = true

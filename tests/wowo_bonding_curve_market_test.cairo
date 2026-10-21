@@ -142,3 +142,54 @@ start_cheat_caller_address(address, user);
 market.buy(token, 100, 166);
 
 }
+
+#[test]
+#[should_panic]
+fn test_sell_rejects_slippage() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let user: ContractAddress = 50.try_into().unwrap();
+    let (market, address) = seed_test_market(token);
+
+    start_cheat_caller_address(address, user);
+    market.sell(token, 500, 166);
+}
+
+#[test]
+#[should_panic]
+fn test_buy_rejects_uninitialized_market() {
+    let (market, _) = deploy_market();
+    let token: ContractAddress = 40.try_into().unwrap();
+
+    market.buy(token, 100, 0);
+}
+
+#[test]
+#[should_panic]
+fn test_sell_rejects_zero_amount() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let (market, address) = seed_test_market(token);
+    let user: ContractAddress = 50.try_into().unwrap();
+
+    start_cheat_caller_address(address, user);
+    market.sell(token, 0, 0);
+}
+
+#[test]
+#[should_panic]
+fn test_non_admin_cannot_create_market() {
+    let (market, address) = deploy_market();
+    let user: ContractAddress = 50.try_into().unwrap();
+    let token: ContractAddress = 40.try_into().unwrap();
+
+    start_cheat_caller_address(address, user);
+    market.create_market(token, 1000, 500);
+}
+
+#[test]
+#[should_panic]
+fn test_market_cannot_be_created_twice() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let (market, _) = seed_test_market(token);
+
+    market.create_market(token, 2000, 1000);
+}

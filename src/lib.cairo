@@ -37,3 +37,4 @@ mod wowo_liquidity_lock;
 pub mod wowo_bonding_curve;
 mod wowo_launchpad;
 pub mod wowo_bonding_curve_market;
+mod test_erc20;
