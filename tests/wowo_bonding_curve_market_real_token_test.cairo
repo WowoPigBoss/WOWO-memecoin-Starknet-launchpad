@@ -9,6 +9,8 @@ use openzeppelin::interfaces::erc20::{
 use wowo_launchpad::wowo_bonding_curve_market::{
     IWowoBondingCurveMarketDispatcher,
     IWowoBondingCurveMarketDispatcherTrait,
+    IWowoBondingCurveMarketSafeDispatcher,
+    IWowoBondingCurveMarketSafeDispatcherTrait,
 };
 
 fn deploy_token(
@@ -115,4 +117,74 @@ fn test_real_token_sell_transfers_balances() {
     let (token_reserve, strk_reserve) = market.get_reserves(token.contract_address);
     assert(token_reserve == 1500, 'WRONG_TOKEN_RESERVE');
     assert(strk_reserve == 334, 'WRONG_STRK_RESERVE');
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_real_token_buy_rejects_insufficient_allowance() {
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let treasury: ContractAddress = 20.try_into().unwrap();
+    let user: ContractAddress = 50.try_into().unwrap();
+
+    let token = deploy_token(admin);
+    let strk = deploy_token(admin);
+    let (market, market_address) =
+        deploy_market(admin, treasury, strk.contract_address);
+
+    start_cheat_caller_address(token.contract_address, admin);
+    token.approve(market_address, 1000);
+    stop_cheat_caller_address(token.contract_address);
+
+    start_cheat_caller_address(strk.contract_address, admin);
+    strk.approve(market_address, 500);
+    strk.transfer(user, 100);
+    stop_cheat_caller_address(strk.contract_address);
+
+    start_cheat_caller_address(market_address, admin);
+    market.create_market(token.contract_address, 1000, 500);
+    stop_cheat_caller_address(market_address);
+
+    start_cheat_caller_address(market_address, user);
+    let safe_market = IWowoBondingCurveMarketSafeDispatcher {
+        contract_address: market_address
+    };
+    match safe_market.buy(token.contract_address, 100, 0) {
+        Result::Ok(_) => panic!("buy unexpectedly succeeded"),
+        Result::Err(_) => {}
+    }
+}
+
+#[test]
+#[feature("safe_dispatcher")]
+fn test_real_token_sell_rejects_insufficient_allowance() {
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let treasury: ContractAddress = 20.try_into().unwrap();
+    let user: ContractAddress = 50.try_into().unwrap();
+
+    let token = deploy_token(admin);
+    let strk = deploy_token(admin);
+    let (market, market_address) =
+        deploy_market(admin, treasury, strk.contract_address);
+
+    start_cheat_caller_address(token.contract_address, admin);
+    token.approve(market_address, 1000);
+    token.transfer(user, 500);
+    stop_cheat_caller_address(token.contract_address);
+
+    start_cheat_caller_address(strk.contract_address, admin);
+    strk.approve(market_address, 500);
+    stop_cheat_caller_address(strk.contract_address);
+
+    start_cheat_caller_address(market_address, admin);
+    market.create_market(token.contract_address, 1000, 500);
+    stop_cheat_caller_address(market_address);
+
+    start_cheat_caller_address(market_address, user);
+    let safe_market = IWowoBondingCurveMarketSafeDispatcher {
+        contract_address: market_address
+    };
+    match safe_market.sell(token.contract_address, 500, 0) {
+        Result::Ok(_) => panic!("sell unexpectedly succeeded"),
+        Result::Err(_) => {}
+    }
 }
