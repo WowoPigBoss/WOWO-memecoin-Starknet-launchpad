@@ -41,6 +41,15 @@ assert(market.get_fee(10_000) == 100, 'WRONG_FEE');
 }
 
 #[test]
+fn test_zero_fee_is_allowed() {
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    start_cheat_caller_address(address, admin);
+    market.set_fee_bps(0);
+    assert(market.get_fee(10_000) == 0, 'FEE_NOT_ZERO');
+}
+
+#[test]
 fn test_admin_can_change_fee() {
 let (market, address) = deploy_market();
 let admin: ContractAddress = 10.try_into().unwrap();
