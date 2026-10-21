@@ -202,3 +202,84 @@ fn test_market_cannot_be_created_twice() {
 
     market.create_market(token, 2000, 1000);
 }
+
+#[test]
+#[should_panic]
+fn test_create_market_rejects_zero_token_seed() {
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let token: ContractAddress = 40.try_into().unwrap();
+
+    start_cheat_caller_address(address, admin);
+    market.create_market(token, 0, 500);
+}
+
+#[test]
+#[should_panic]
+fn test_create_market_rejects_zero_strk_seed() {
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let token: ContractAddress = 40.try_into().unwrap();
+
+    start_cheat_caller_address(address, admin);
+    market.create_market(token, 1000, 0);
+}
+
+#[test]
+#[should_panic]
+fn test_buy_rejects_zero_amount() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let user: ContractAddress = 50.try_into().unwrap();
+    let (market, address) = seed_test_market(token);
+
+    start_cheat_caller_address(address, user);
+    market.buy(token, 0, 0);
+}
+
+#[test]
+#[should_panic(expected: 'NOT_ADMIN')]
+fn test_non_admin_cannot_change_fee() {
+    let (market, address) = deploy_market();
+    let user: ContractAddress = 50.try_into().unwrap();
+
+    start_cheat_caller_address(address, user);
+    market.set_fee_bps(500);
+}
+
+#[test]
+fn test_admin_can_set_maximum_fee() {
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+
+    start_cheat_caller_address(address, admin);
+    market.set_fee_bps(1000);
+
+    assert(market.get_fee(10_000) == 1000, 'WRONG_MAX_FEE');
+}
+
+#[test]
+#[should_panic(expected: 'INVALID_TOKEN')]
+fn test_create_market_rejects_strk_as_project_token() {
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+
+    start_cheat_caller_address(address, admin);
+    market.create_market(strk, 1000, 500);
+}
+
+#[test]
+fn test_fee_rounds_down_for_small_amount() {
+    let (market, _) = deploy_market();
+
+    assert(market.get_fee(1) == 0, 'WRONG_SMALL_FEE');
+    assert(market.get_fee(99) == 0, 'WRONG_SMALL_FEE');
+    assert(market.get_fee(100) == 1, 'WRONG_SMALL_FEE');
+}
+
+#[test]
+#[should_panic(expected: 'INVALID_AMOUNT')]
+fn test_get_fee_rejects_zero_amount() {
+    let (market, _) = deploy_market();
+    market.get_fee(0);
+}

@@ -93,6 +93,7 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
     ) {
         let caller = get_caller_address();
         assert(caller == self.admin.read(), 'NOT_ADMIN');
+        assert(token != self.strk_token.read(), 'INVALID_TOKEN');
         assert(!self.initialized.entry(token).read(), 'MARKET_EXISTS');
         assert(token_seed > 0, 'INVALID_TOKEN_SEED');
         assert(strk_seed > 0, 'INVALID_STRK_SEED');
