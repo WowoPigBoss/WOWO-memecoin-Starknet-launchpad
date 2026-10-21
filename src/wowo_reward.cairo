@@ -67,8 +67,10 @@ mod WowoReward {
 
         if balance < self.min_balance.read() {
             self.holding_start.entry(caller).write(0);
+            self.claimed.entry(caller).write(0);
         } else if start == 0 {
             self.holding_start.entry(caller).write(current);
+            self.claimed.entry(caller).write(0);
         }
     }
 
