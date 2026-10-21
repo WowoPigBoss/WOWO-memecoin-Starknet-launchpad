@@ -112,4 +112,7 @@ fn test_real_token_sell_transfers_balances() {
     assert(strk.balance_of(user) == 165, 'WRONG_USER_STRK');
     assert(strk.balance_of(treasury) == 1, 'WRONG_TREASURY_FEE');
     assert(strk.balance_of(market_address) == 334, 'WRONG_MARKET_STRK');
+    let (token_reserve, strk_reserve) = market.get_reserves(token.contract_address);
+    assert(token_reserve == 1500, 'WRONG_TOKEN_RESERVE');
+    assert(strk_reserve == 334, 'WRONG_STRK_RESERVE');
 }
