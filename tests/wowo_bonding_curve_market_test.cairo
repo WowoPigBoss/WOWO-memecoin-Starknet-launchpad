@@ -322,3 +322,34 @@ fn test_admin_can_begin_migration_at_threshold() {
 
     assert(market.is_paused(token), 'MARKET_NOT_PAUSED');
 }
+
+
+#[test]
+#[should_panic(expected: 'MARKET_PAUSED')]
+fn test_buy_rejects_paused_market() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let (market, address) = seed_test_market(token);
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let user: ContractAddress = 50.try_into().unwrap();
+
+    start_cheat_caller_address(address, admin);
+    market.pause_market(token);
+
+    start_cheat_caller_address(address, user);
+    market.buy(token, 100, 0);
+}
+
+#[test]
+#[should_panic(expected: 'MARKET_PAUSED')]
+fn test_sell_rejects_paused_market() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let (market, address) = seed_test_market(token);
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let user: ContractAddress = 50.try_into().unwrap();
+
+    start_cheat_caller_address(address, admin);
+    market.pause_market(token);
+
+    start_cheat_caller_address(address, user);
+    market.sell(token, 100, 0);
+}
