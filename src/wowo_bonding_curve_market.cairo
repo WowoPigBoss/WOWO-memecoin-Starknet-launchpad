@@ -106,6 +106,7 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
         ref self: ContractState,
         token: ContractAddress,
     ) {
+        assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
         assert(self.initialized.entry(token).read(), 'NO_MARKET');
         assert(!self.migrated.entry(token).read(), 'ALREADY_MIGRATED');
         assert(
