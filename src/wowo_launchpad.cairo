@@ -17,20 +17,28 @@ mod WowoLaunchpad {
 
     #[constructor]
     fn constructor(
-            ref self: ContractState,
-                wowo_token: ContractAddress,
+        ref self: ContractState,
+        wowo_token: ContractAddress,
         strk_token: ContractAddress,
-                    treasury: ContractAddress,
-                        fee_strk: u256,
-                            wowo_per_strk: u256,
-                                admin: ContractAddress,
+        treasury: ContractAddress,
+        fee_strk: u256,
+        wowo_per_strk: u256,
+        admin: ContractAddress,
     ) {
-            self.wowo_token.write(wowo_token);
+        assert(wowo_token != 0.try_into().unwrap(), 'ZERO_WOWO');
+        assert(strk_token != 0.try_into().unwrap(), 'ZERO_STRK');
+        assert(treasury != 0.try_into().unwrap(), 'ZERO_TREASURY');
+        assert(fee_strk > 0, 'ZERO_FEE');
+        assert(wowo_per_strk > 0, 'INVALID_RATE');
+        assert(admin != 0.try_into().unwrap(), 'ZERO_ADMIN');
+
+        self.wowo_token.write(wowo_token);
         self.strk_token.write(strk_token);
-                self.treasury.write(treasury);
-                    self.fee_strk.write(fee_strk);
-                        self.wowo_per_strk.write(wowo_per_strk);
-   self.admin.write(admin); }
+        self.treasury.write(treasury);
+        self.fee_strk.write(fee_strk);
+        self.wowo_per_strk.write(wowo_per_strk);
+        self.admin.write(admin);
+    }
 
     #[external(v0)]
     fn get_wowo_token(self: @ContractState) -> ContractAddress {
