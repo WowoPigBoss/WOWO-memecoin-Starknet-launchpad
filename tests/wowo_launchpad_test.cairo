@@ -55,3 +55,4 @@ fn test_non_admin_cannot_set_rate() {
     start_cheat_caller_address(address, user);
     launchpad.set_wowo_per_strk(5);
 }
+
