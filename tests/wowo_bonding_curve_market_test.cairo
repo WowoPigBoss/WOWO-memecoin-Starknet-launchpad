@@ -283,3 +283,42 @@ fn test_get_fee_rejects_zero_amount() {
     let (market, _) = deploy_market();
     market.get_fee(0);
 }
+
+
+#[test]
+#[should_panic(expected: 'NOT_ADMIN')]
+fn test_non_admin_cannot_begin_migration() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let user: ContractAddress = 50.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+    let threshold: u256 = 15_000_000_000_000_000_000_000;
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    start_cheat_caller_address(address, admin);
+    market.create_market(token, 1000, threshold);
+
+    start_cheat_caller_address(address, user);
+    market.begin_migration(token);
+}
+
+#[test]
+fn test_admin_can_begin_migration_at_threshold() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+    let threshold: u256 = 15_000_000_000_000_000_000_000;
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    start_cheat_caller_address(address, admin);
+    market.create_market(token, 1000, threshold);
+    market.begin_migration(token);
+
+    assert(market.is_paused(token), 'MARKET_NOT_PAUSED');
+}
