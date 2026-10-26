@@ -323,6 +323,25 @@ fn test_admin_can_begin_migration_at_threshold() {
     assert(market.is_paused(token), 'MARKET_NOT_PAUSED');
 }
 
+#[test]
+#[should_panic(expected: 'ALREADY_PAUSED')]
+fn test_begin_migration_rejects_second_attempt() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+    let threshold: u256 = 15_000_000_000_000_000_000_000;
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    start_cheat_caller_address(address, admin);
+    market.create_market(token, 1000, threshold);
+    market.begin_migration(token);
+    market.begin_migration(token);
+}
+
+
 
 #[test]
 #[should_panic(expected: 'MARKET_PAUSED')]
