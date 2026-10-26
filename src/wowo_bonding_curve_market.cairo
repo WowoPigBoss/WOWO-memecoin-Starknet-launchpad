@@ -7,6 +7,8 @@ fn get_reserves(
 self: @TContractState,
 token: ContractAddress,
 ) -> (u256, u256);
+fn can_migrate(self: @TContractState, token: ContractAddress) -> bool;
+fn begin_migration(ref self: TContractState, token: ContractAddress);
 fn create_market(
 ref self: TContractState,
 token: ContractAddress,
@@ -26,6 +28,10 @@ token_amount: u256,
 min_strk_out: u256,
 ) -> u256;
 fn set_fee_bps(ref self: TContractState, new_fee_bps: u16);
+fn pause_market(ref self: TContractState, token: ContractAddress);
+fn mark_migrated(ref self: TContractState, token: ContractAddress);
+fn is_paused(self: @TContractState, token: ContractAddress) -> bool;
+fn is_migrated(self: @TContractState, token: ContractAddress) -> bool;
 }
 
 #[starknet::contract]
@@ -52,6 +58,8 @@ struct Storage {
     initialized: Map<ContractAddress, bool>,
     token_reserve: Map<ContractAddress, u256>,
     strk_reserve: Map<ContractAddress, u256>,
+    paused: Map<ContractAddress, bool>,
+    migrated: Map<ContractAddress, bool>,
 }
 
 #[constructor]
@@ -85,6 +93,29 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
         )
     }
 
+    fn can_migrate(
+        self: @ContractState,
+        token: ContractAddress,
+    ) -> bool {
+        assert(self.initialized.entry(token).read(), 'NO_MARKET');
+        self.strk_reserve.entry(token).read()
+            >= 15_000_000_000_000_000_000_000_u256
+    }
+
+    fn begin_migration(
+        ref self: ContractState,
+        token: ContractAddress,
+    ) {
+        assert(self.initialized.entry(token).read(), 'NO_MARKET');
+        assert(!self.migrated.entry(token).read(), 'ALREADY_MIGRATED');
+        assert(
+            self.strk_reserve.entry(token).read()
+                >= 15_000_000_000_000_000_000_000_u256,
+            'MIGRATION_THRESHOLD_NOT_MET'
+        );
+        self.paused.entry(token).write(true);
+    }
+
     fn create_market(
         ref self: ContractState,
         token: ContractAddress,
@@ -115,6 +146,8 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
         self.token_reserve.entry(token).write(token_seed);
         self.strk_reserve.entry(token).write(strk_seed);
         self.initialized.entry(token).write(true);
+        self.paused.entry(token).write(false);
+        self.migrated.entry(token).write(false);
     }
 
     fn buy(
@@ -125,6 +158,8 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
     ) -> u256 {
         let caller = get_caller_address();
         assert(self.initialized.entry(token).read(), 'NO_MARKET');
+        assert(!self.paused.entry(token).read(), 'MARKET_PAUSED');
+        assert(!self.migrated.entry(token).read(), 'ALREADY_MIGRATED');
         assert(strk_amount > 0, 'INVALID_AMOUNT');
 
         let token_reserve = self.token_reserve.entry(token).read();
@@ -178,6 +213,8 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
     ) -> u256 {
         let caller = get_caller_address();
         assert(self.initialized.entry(token).read(), 'NO_MARKET');
+        assert(!self.paused.entry(token).read(), 'MARKET_PAUSED');
+        assert(!self.migrated.entry(token).read(), 'ALREADY_MIGRATED');
         assert(token_amount > 0, 'INVALID_AMOUNT');
 
         let token_reserve = self.token_reserve.entry(token).read();
@@ -234,6 +271,42 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
         );
         assert(new_fee_bps <= 1000, 'FEE_TOO_HIGH');
         self.fee_bps.write(new_fee_bps);
+    }
+
+    fn pause_market(
+        ref self: ContractState,
+        token: ContractAddress,
+    ) {
+        assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
+        assert(self.initialized.entry(token).read(), 'NO_MARKET');
+        assert(!self.migrated.entry(token).read(), 'ALREADY_MIGRATED');
+        assert(!self.paused.entry(token).read(), 'ALREADY_PAUSED');
+        self.paused.entry(token).write(true);
+    }
+
+    fn mark_migrated(
+        ref self: ContractState,
+        token: ContractAddress,
+    ) {
+        assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
+        assert(self.initialized.entry(token).read(), 'NO_MARKET');
+        assert(self.paused.entry(token).read(), 'MARKET_NOT_PAUSED');
+        assert(!self.migrated.entry(token).read(), 'ALREADY_MIGRATED');
+        self.migrated.entry(token).write(true);
+    }
+
+    fn is_paused(
+        self: @ContractState,
+        token: ContractAddress,
+    ) -> bool {
+        self.paused.entry(token).read()
+    }
+
+    fn is_migrated(
+        self: @ContractState,
+        token: ContractAddress,
+    ) -> bool {
+        self.migrated.entry(token).read()
     }
 }
 
