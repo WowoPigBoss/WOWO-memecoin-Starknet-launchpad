@@ -58,8 +58,8 @@ fn get_wowo_per_strk(self: @ContractState) -> u256 {
             let caller = get_caller_address();
 
                 assert(caller == self.admin.read(), 'NOT_ADMIN');
-
-                    self.wowo_per_strk.write(new_rate);
+        assert(new_rate > 0, 'INVALID_RATE');
+        self.wowo_per_strk.write(new_rate);
     }
 
 #[external(v0)]
