@@ -81,3 +81,33 @@ fn test_pay_fee_strk_transfers_current_fee() {
 
     assert(strk.balance_of(treasury) == 110, 'WRONG_STRK_FEE');
 }
+
+#[test]
+#[should_panic]
+fn test_pay_fee_wowo_rejects_without_allowance() {
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let treasury: ContractAddress = 20.try_into().unwrap();
+    let wowo = deploy_token(admin);
+    let strk = deploy_token(admin);
+    let (launchpad, address) = deploy_launchpad(
+        wowo.contract_address, strk.contract_address, treasury, admin
+    );
+
+    start_cheat_caller_address(address, admin);
+    launchpad.pay_fee();
+}
+
+#[test]
+#[should_panic]
+fn test_pay_fee_strk_rejects_without_allowance() {
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let treasury: ContractAddress = 20.try_into().unwrap();
+    let wowo = deploy_token(admin);
+    let strk = deploy_token(admin);
+    let (launchpad, address) = deploy_launchpad(
+        wowo.contract_address, strk.contract_address, treasury, admin
+    );
+
+    start_cheat_caller_address(address, admin);
+    launchpad.pay_fee_strk();
+}
