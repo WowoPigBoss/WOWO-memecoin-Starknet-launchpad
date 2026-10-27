@@ -1,3 +1,4 @@
+mod wowo_ekubo_migration;
 #[starknet::contract]
 mod WowoToken {
     use openzeppelin::token::erc20::{DefaultConfig, ERC20Component, ERC20HooksEmptyImpl};
