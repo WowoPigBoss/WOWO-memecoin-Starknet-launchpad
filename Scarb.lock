@@ -2,6 +2,11 @@
 version = 1
 
 [[package]]
+name = "ekubo"
+version = "0.1.0"
+source = "git+https://github.com/EkuboProtocol/starknet-contracts.git?branch=main#195e0c0df5f9f751f51395d1854b5259a7b0a0b0"
+
+[[package]]
 name = "openzeppelin"
 version = "4.0.1"
 source = "git+https://github.com/OpenZeppelin/cairo-contracts.git?tag=v4.0.1#87e32f3d1269c80970201e086f3362d4b707368e"
@@ -145,6 +150,7 @@ dependencies = [
 name = "wowo_launchpad"
 version = "0.1.0"
 dependencies = [
+ "ekubo",
  "openzeppelin",
  "snforge_std",
 ]

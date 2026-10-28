@@ -1,0 +1,10 @@
+use starknet::ContractAddress;
+
+/// Status migrasi WOWO ke Ekubo.
+/// Modul ini belum melakukan transfer dana.
+#[derive(Copy, Drop, Serde, PartialEq)]
+pub enum MigrationStatus {
+NotStarted,
+Pending,
+Completed,
+}

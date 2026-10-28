@@ -1,0 +1,81 @@
+use starknet::{ContractAddress, get_caller_address};
+use starknet::storage::{
+    Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess
+};
+
+#[starknet::interface]
+pub trait IWowoEkuboMigration<TContractState> {
+    fn can_migrate(self: @TContractState, token: ContractAddress) -> bool;
+    fn begin_migration(ref self: TContractState, token: ContractAddress);
+    fn complete_migration(ref self: TContractState, token: ContractAddress);
+    fn migration_status(self: @TContractState, token: ContractAddress) -> u8;
+}
+
+#[starknet::contract]
+pub mod WowoEkuboMigration {
+    use super::IWowoEkuboMigration;
+    use starknet::{ContractAddress, get_caller_address};
+
+    const MIN_STRK_RESERVE: u256 =
+        15_000_000_000_000_000_000_000;
+
+    #[storage]
+    struct Storage {
+        admin: ContractAddress,
+        market: ContractAddress,
+        strk_reserve: Map<ContractAddress, u256>,
+        status: Map<ContractAddress, u8>,
+    }
+
+    #[constructor]
+    fn constructor(
+        ref self: ContractState,
+        admin: ContractAddress,
+        market: ContractAddress,
+    ) {
+        assert(admin != 0.try_into().unwrap(), 'INVALID_ADMIN');
+        assert(market != 0.try_into().unwrap(), 'INVALID_MARKET');
+        self.admin.write(admin);
+        self.market.write(market);
+    }
+
+    #[abi(embed_v0)]
+    impl MigrationImpl of IWowoEkuboMigration<ContractState> {
+        fn can_migrate(
+            self: @ContractState,
+            token: ContractAddress,
+        ) -> bool {
+            self.status.entry(token).read() == 0
+                && self.strk_reserve.entry(token).read() >= MIN_STRK_RESERVE
+        }
+
+        fn begin_migration(
+            ref self: ContractState,
+            token: ContractAddress,
+        ) {
+            assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
+            assert(self.status.entry(token).read() == 0, 'BAD_STATUS');
+            assert(
+                self.strk_reserve.entry(token).read() >= MIN_STRK_RESERVE,
+                'THRESHOLD_NOT_MET'
+            );
+            self.status.entry(token).write(1);
+        }
+
+        fn complete_migration(
+            ref self: ContractState,
+            token: ContractAddress,
+        ) {
+            assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
+            assert(self.status.entry(token).read() == 1, 'NOT_PENDING');
+            self.status.entry(token).write(2);
+        }
+
+        fn migration_status(
+            self: @ContractState,
+            token: ContractAddress,
+        ) -> u8 {
+            self.status.entry(token).read()
+        }
+    }
+}

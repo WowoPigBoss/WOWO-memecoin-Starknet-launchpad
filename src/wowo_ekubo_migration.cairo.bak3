@@ -1,0 +1,31 @@
+use starknet::ContractAddress;
+
+/// Status migrasi WOWO ke Ekubo.
+#[derive(Copy, Drop, Serde, PartialEq)]
+pub enum MigrationStatus {
+    NotStarted,
+    Pending,
+    Completed,
+    Failed,
+}
+
+/// Konfigurasi pool Ekubo.
+#[derive(Copy, Drop, Serde)]
+pub struct EkuboPoolConfig {
+    pub core: ContractAddress,
+    pub positions: ContractAddress,
+    pub token0: ContractAddress,
+    pub token1: ContractAddress,
+    pub fee: u128,
+    pub tick_spacing: u128,
+    pub extension: ContractAddress,
+}
+
+/// Memastikan alamat dan urutan token valid sebelum migrasi.
+pub fn validate_pool_config(config: EkuboPoolConfig) {
+    assert(config.core != 0.try_into().unwrap(), 'INVALID_CORE');
+    assert(config.positions != 0.try_into().unwrap(), 'INVALID_POSITIONS');
+    assert(config.token0 != config.token1, 'SAME_POOL_TOKENS');
+    assert(config.token0 < config.token1, 'TOKENS_NOT_SORTED');
+    assert(config.tick_spacing > 0, 'INVALID_TICK_SPACING');
+}
