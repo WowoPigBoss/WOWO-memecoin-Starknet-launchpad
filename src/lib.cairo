@@ -39,3 +39,5 @@ mod wowo_launchpad;
 pub mod wowo_bonding_curve_market;
 mod test_erc20;
 pub mod wowo_amm_pool;
+
+mod wowo_ekubo_migration;
