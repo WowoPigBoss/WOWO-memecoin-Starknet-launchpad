@@ -127,18 +127,11 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
         let token_amount = self.token_reserve.entry(token).read();
         let strk_amount = self.strk_reserve.entry(token).read();
 
-        assert(
-            strk_amount >= 15_000_000_000_000_000_000_000_u256,
-            'MIGRATION_THRESHOLD_NOT_MET'
-        );
+        assert(strk_amount >= 15_000_000_000_000_000_000_000_u256, 'MIGRATION_THRESHOLD_NOT_MET');
         assert(token_amount > 0, 'EMPTY_TOKEN_RESERVE');
 
-        let token_contract = IERC20Dispatcher {
-            contract_address: token
-        };
-        let strk_contract = IERC20Dispatcher {
-            contract_address: self.strk_token.read()
-        };
+        let token_contract = IERC20Dispatcher { contract_address: token };
+        let strk_contract = IERC20Dispatcher { contract_address: self.strk_token.read() };
 
         token_contract.assert_transfer(migration, token_amount);
         strk_contract.assert_transfer(migration, strk_amount);
