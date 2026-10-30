@@ -101,7 +101,7 @@ fn required_strk_for_migration(self: @ContractState) -> u256 {
     let now = get_block_timestamp();
     assert(response.price > 0, 'INVALID_ORACLE_PRICE');
     assert(response.decimals == 8, 'INVALID_ORACLE_DECIMALS');
-    assert(response.num_sources_aggregated > 0, 'NO_ORACLE_SOURCES');
+    assert(response.num_sources_aggregated >= 3, 'INSUFFICIENT_ORACLE_SOURCES');
     assert(response.last_updated_timestamp <= now, 'ORACLE_TIME_INVALID');
     assert(
         now - response.last_updated_timestamp <= 300,

@@ -1,6 +1,6 @@
 use snforge_std::{
 ContractClassTrait, DeclareResultTrait, declare, mock_call, start_mock_call,
-start_cheat_caller_address,
+start_cheat_block_timestamp, start_cheat_caller_address,
 };
 use starknet::ContractAddress;
 
@@ -416,14 +416,16 @@ fn test_can_migrate_uses_pragma_usd_price() {
     start_cheat_caller_address(address, admin);
     market.set_pragma_oracle(oracle);
 
+    start_cheat_block_timestamp(address, 1_000_000);
+
     start_mock_call(
         oracle,
         selector!("get_data_median"),
         PragmaPricesResponse {
             price: 4_000_000,
             decimals: 8,
-            last_updated_timestamp: 0,
-            num_sources_aggregated: 1,
+            last_updated_timestamp: 1_000_000,
+            num_sources_aggregated: 3,
             expiration_timestamp: None,
         },
     );
@@ -438,4 +440,202 @@ fn test_can_migrate_uses_pragma_usd_price() {
     );
 
     assert(market.can_migrate(token), 'ORACLE_THRESHOLD_FAILED');
+}
+
+#[test]
+#[should_panic(expected: 'INSUFFICIENT_ORACLE_SOURCES')]
+fn test_oracle_rejects_one_source() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let oracle: ContractAddress = 70.try_into().unwrap();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+
+    let (market, address) = deploy_market();
+
+    start_cheat_caller_address(address, admin);
+    market.set_pragma_oracle(oracle);
+    start_cheat_block_timestamp(address, 1_000_000);
+
+    start_mock_call(
+        oracle,
+        selector!("get_data_median"),
+        PragmaPricesResponse {
+            price: 4_000_000,
+            decimals: 8,
+            last_updated_timestamp: 1_000_000,
+            num_sources_aggregated: 1,
+            expiration_timestamp: None,
+        },
+    );
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    market.create_market(token, 1000, 1_100_000_000_000_000_000_000_000);
+    market.can_migrate(token);
+}
+
+#[test]
+#[should_panic(expected: 'INSUFFICIENT_ORACLE_SOURCES')]
+fn test_oracle_rejects_two_sources() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let oracle: ContractAddress = 70.try_into().unwrap();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+
+    let (market, address) = deploy_market();
+
+    start_cheat_caller_address(address, admin);
+    market.set_pragma_oracle(oracle);
+    start_cheat_block_timestamp(address, 1_000_000);
+
+    start_mock_call(
+        oracle,
+        selector!("get_data_median"),
+        PragmaPricesResponse {
+            price: 4_000_000,
+            decimals: 8,
+            last_updated_timestamp: 1_000_000,
+            num_sources_aggregated: 2,
+            expiration_timestamp: None,
+        },
+    );
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    market.create_market(token, 1000, 1_100_000_000_000_000_000_000_000);
+    market.can_migrate(token);
+}
+
+#[test]
+#[should_panic(expected: 'ORACLE_DATA_STALE')]
+fn test_oracle_rejects_price_older_than_300_seconds() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let oracle: ContractAddress = 70.try_into().unwrap();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+
+    let (market, address) = deploy_market();
+
+    start_cheat_caller_address(address, admin);
+    market.set_pragma_oracle(oracle);
+    start_cheat_block_timestamp(address, 1_000_000);
+
+    start_mock_call(
+        oracle,
+        selector!("get_data_median"),
+        PragmaPricesResponse {
+            price: 4_000_000,
+            decimals: 8,
+            last_updated_timestamp: 999_699,
+            num_sources_aggregated: 3,
+            expiration_timestamp: None,
+        },
+    );
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    market.create_market(token, 1000, 1_100_000_000_000_000_000_000_000);
+    market.can_migrate(token);
+}
+
+#[test]
+#[should_panic(expected: 'ORACLE_TIME_INVALID')]
+fn test_oracle_rejects_future_timestamp() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let oracle: ContractAddress = 70.try_into().unwrap();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+
+    let (market, address) = deploy_market();
+
+    start_cheat_caller_address(address, admin);
+    market.set_pragma_oracle(oracle);
+    start_cheat_block_timestamp(address, 1_000_000);
+
+    start_mock_call(
+        oracle,
+        selector!("get_data_median"),
+        PragmaPricesResponse {
+            price: 4_000_000,
+            decimals: 8,
+            last_updated_timestamp: 1_000_001,
+            num_sources_aggregated: 3,
+            expiration_timestamp: None,
+        },
+    );
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    market.create_market(token, 1000, 1_100_000_000_000_000_000_000_000);
+    market.can_migrate(token);
+}
+
+#[test]
+fn test_oracle_accepts_price_at_exactly_300_seconds() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let oracle: ContractAddress = 70.try_into().unwrap();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+
+    let (market, address) = deploy_market();
+
+    start_cheat_caller_address(address, admin);
+    market.set_pragma_oracle(oracle);
+    start_cheat_block_timestamp(address, 1_000_000);
+
+    start_mock_call(
+        oracle,
+        selector!("get_data_median"),
+        PragmaPricesResponse {
+            price: 4_000_000,
+            decimals: 8,
+            last_updated_timestamp: 999_700,
+            num_sources_aggregated: 3,
+            expiration_timestamp: None,
+        },
+    );
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    market.create_market(token, 1000, 1_100_000_000_000_000_000_000_000);
+
+    assert(market.can_migrate(token), 'EXACT_300_SECONDS_REJECTED');
+}
+
+#[test]
+#[should_panic(expected: 'ORACLE_EXPIRED')]
+fn test_oracle_rejects_expired_price() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let oracle: ContractAddress = 70.try_into().unwrap();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+
+    let (market, address) = deploy_market();
+
+    start_cheat_caller_address(address, admin);
+    market.set_pragma_oracle(oracle);
+    start_cheat_block_timestamp(address, 1_000_000);
+
+    start_mock_call(
+        oracle,
+        selector!("get_data_median"),
+        PragmaPricesResponse {
+            price: 4_000_000,
+            decimals: 8,
+            last_updated_timestamp: 1_000_000,
+            num_sources_aggregated: 3,
+            expiration_timestamp: Some(999_999),
+        },
+    );
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    market.create_market(token, 1000, 1_100_000_000_000_000_000_000_000);
+    market.can_migrate(token);
 }
