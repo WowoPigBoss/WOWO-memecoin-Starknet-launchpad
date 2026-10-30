@@ -8,6 +8,10 @@ self: @TContractState,
 token: ContractAddress,
 ) -> (u256, u256);
 fn can_migrate(self: @TContractState, token: ContractAddress) -> bool;
+fn set_pragma_oracle(ref self: TContractState, oracle: ContractAddress);
+fn get_pragma_oracle(self: @TContractState) -> ContractAddress;
+fn set_migration_target_usd(ref self: TContractState, target_usd: u256);
+fn get_migration_target_usd(self: @TContractState) -> u256;
 fn set_migration_contract(ref self: TContractState, migration: ContractAddress);
 fn begin_migration(ref self: TContractState, token: ContractAddress) -> (u256, u256);
 fn create_market(
@@ -37,12 +41,15 @@ fn is_migrated(self: @TContractState, token: ContractAddress) -> bool;
 #[starknet::contract]
 pub mod WowoBondingCurveMarket {
 use super::IWowoBondingCurveMarket;
+use crate::pragma_oracle::{
+    DataType, IPragmaOracleDispatcher, IPragmaOracleDispatcherTrait
+};
 use openzeppelin::interfaces::erc20::{
 IERC20Dispatcher, IERC20DispatcherTrait
 };
 use openzeppelin::token::erc20::SafeERC20DispatcherTrait;
 use starknet::{
-ContractAddress, get_caller_address, get_contract_address
+ContractAddress, get_caller_address, get_contract_address, get_block_timestamp
 };
 use starknet::storage::{
 Map, StoragePathEntry,
@@ -55,6 +62,8 @@ struct Storage {
     treasury: ContractAddress,
     strk_token: ContractAddress,
     migration_contract: ContractAddress,
+    pragma_oracle: ContractAddress,
+    migration_target_usd: u256,
     fee_bps: u16,
     initialized: Map<ContractAddress, bool>,
     token_reserve: Map<ContractAddress, u256>,
@@ -73,7 +82,43 @@ fn constructor(
     self.admin.write(admin);
     self.treasury.write(treasury);
     self.strk_token.write(strk_token);
+    self.pragma_oracle.write(
+        0x36031daa264c24520b11d93af622c848b2499b66b41d611bac95e13cfca131a
+    );
+    self.migration_target_usd.write(44_000);
     self.fee_bps.write(100);
+}
+
+
+fn required_strk_for_migration(self: @ContractState) -> u256 {
+    let oracle = IPragmaOracleDispatcher {
+        contract_address: self.pragma_oracle.read()
+    };
+    let response = oracle.get_data_median(
+        DataType::SpotEntry(0x5354524b2f555344)
+    );
+
+    let now = get_block_timestamp();
+    assert(response.price > 0, 'INVALID_ORACLE_PRICE');
+    assert(response.decimals == 8, 'INVALID_ORACLE_DECIMALS');
+    assert(response.num_sources_aggregated > 0, 'NO_ORACLE_SOURCES');
+    assert(response.last_updated_timestamp <= now, 'ORACLE_TIME_INVALID');
+    assert(
+        now - response.last_updated_timestamp <= 300,
+        'ORACLE_DATA_STALE'
+    );
+
+    match response.expiration_timestamp {
+            Some(expiration) => {
+                assert(now <= expiration, 'ORACLE_EXPIRED');
+            },
+            None => {},
+        };
+
+        let target: u256 = self.migration_target_usd.read();
+    let price: u256 = response.price.into();
+
+    (target * 100_000_000_u256 * 1_000_000_000_000_000_000_u256) / price
 }
 
 #[abi(embed_v0)]
@@ -100,7 +145,34 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
     ) -> bool {
         assert(self.initialized.entry(token).read(), 'NO_MARKET');
         self.strk_reserve.entry(token).read()
-            >= 15_000_000_000_000_000_000_000_u256
+            >= required_strk_for_migration(self)
+    }
+
+    fn set_pragma_oracle(
+        ref self: ContractState,
+        oracle: ContractAddress,
+    ) {
+        assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
+        assert(oracle != 0, 'INVALID_ORACLE');
+        self.pragma_oracle.write(oracle);
+    }
+
+    fn get_pragma_oracle(self: @ContractState) -> ContractAddress {
+        self.pragma_oracle.read()
+    }
+
+    fn set_migration_target_usd(
+        ref self: ContractState,
+        target_usd: u256,
+    ) {
+        assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
+        assert(target_usd > 0, 'INVALID_TARGET');
+        assert(target_usd <= 1_000_000_000, 'TARGET_TOO_HIGH');
+        self.migration_target_usd.write(target_usd);
+    }
+
+    fn get_migration_target_usd(self: @ContractState) -> u256 {
+        self.migration_target_usd.read()
     }
 
     fn set_migration_contract(
@@ -127,7 +199,7 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
         let token_amount = self.token_reserve.entry(token).read();
         let strk_amount = self.strk_reserve.entry(token).read();
 
-        assert(strk_amount >= 15_000_000_000_000_000_000_000_u256, 'MIGRATION_THRESHOLD_NOT_MET');
+        assert(strk_amount >= required_strk_for_migration(@self), 'MIGRATION_THRESHOLD_NOT_MET');
         assert(token_amount > 0, 'EMPTY_TOKEN_RESERVE');
 
         let token_contract = IERC20Dispatcher { contract_address: token };

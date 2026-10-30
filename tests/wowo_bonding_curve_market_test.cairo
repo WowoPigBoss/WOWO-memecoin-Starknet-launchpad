@@ -1,9 +1,10 @@
 use snforge_std::{
-ContractClassTrait, DeclareResultTrait, declare, mock_call,
+ContractClassTrait, DeclareResultTrait, declare, mock_call, start_mock_call,
 start_cheat_caller_address,
 };
 use starknet::ContractAddress;
 
+use wowo_launchpad::pragma_oracle::{DataType, PragmaPricesResponse, IPragmaOracleDispatcher, IPragmaOracleDispatcherTrait};
 use wowo_launchpad::wowo_bonding_curve_market::{
 IWowoBondingCurveMarketDispatcher,
 IWowoBondingCurveMarketDispatcherTrait,
@@ -286,41 +287,29 @@ fn test_get_fee_rejects_zero_amount() {
 
 
 #[test]
-#[should_panic(expected: 'NOT_ADMIN')]
+#[should_panic(expected: 'NOT_MIGRATION')]
 fn test_non_admin_cannot_begin_migration() {
-    let token: ContractAddress = 40.try_into().unwrap();
     let (market, address) = deploy_market();
     let admin: ContractAddress = 10.try_into().unwrap();
     let user: ContractAddress = 50.try_into().unwrap();
-    let strk: ContractAddress = 30.try_into().unwrap();
-    let threshold: u256 = 15_000_000_000_000_000_000_000;
-
-    mock_call(token, selector!("transfer_from"), true, 1);
-    mock_call(strk, selector!("transfer_from"), true, 1);
+    let migration: ContractAddress = 60.try_into().unwrap();
 
     start_cheat_caller_address(address, admin);
-    market.create_market(token, 1000, threshold);
+    market.set_migration_contract(migration);
 
     start_cheat_caller_address(address, user);
-    market.begin_migration(token);
+    market.begin_migration(40.try_into().unwrap());
 }
 
 #[test]
-fn test_admin_can_begin_migration_at_threshold() {
-    let token: ContractAddress = 40.try_into().unwrap();
+#[should_panic(expected: 'MIGRATION_NOT_SET')]
+fn test_begin_migration_rejects_unconfigured_migration() {
     let (market, address) = deploy_market();
     let admin: ContractAddress = 10.try_into().unwrap();
-    let strk: ContractAddress = 30.try_into().unwrap();
-    let threshold: u256 = 15_000_000_000_000_000_000_000;
-
-    mock_call(token, selector!("transfer_from"), true, 1);
-    mock_call(strk, selector!("transfer_from"), true, 1);
+    let token: ContractAddress = 40.try_into().unwrap();
 
     start_cheat_caller_address(address, admin);
-    market.create_market(token, 1000, threshold);
     market.begin_migration(token);
-
-    assert(market.is_paused(token), 'MARKET_NOT_PAUSED');
 }
 
 #[test]
@@ -330,14 +319,17 @@ fn test_begin_migration_rejects_second_attempt() {
     let (market, address) = deploy_market();
     let admin: ContractAddress = 10.try_into().unwrap();
     let strk: ContractAddress = 30.try_into().unwrap();
-    let threshold: u256 = 15_000_000_000_000_000_000_000;
+    let migration: ContractAddress = 60.try_into().unwrap();
 
     mock_call(token, selector!("transfer_from"), true, 1);
     mock_call(strk, selector!("transfer_from"), true, 1);
 
     start_cheat_caller_address(address, admin);
-    market.create_market(token, 1000, threshold);
-    market.begin_migration(token);
+    market.set_migration_contract(migration);
+    market.create_market(token, 1000, 500);
+    market.pause_market(token);
+
+    start_cheat_caller_address(address, migration);
     market.begin_migration(token);
 }
 
@@ -371,4 +363,79 @@ fn test_sell_rejects_paused_market() {
 
     start_cheat_caller_address(address, user);
     market.sell(token, 100, 0);
+}
+
+#[test]
+fn test_default_migration_target_is_44000_usd() {
+    let (market, _) = deploy_market();
+    assert(market.get_migration_target_usd() == 44_000, 'WRONG_TARGET');
+}
+
+#[test]
+fn test_admin_can_update_migration_target() {
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+
+    start_cheat_caller_address(address, admin);
+    market.set_migration_target_usd(50_000);
+
+    assert(market.get_migration_target_usd() == 50_000, 'TARGET_NOT_UPDATED');
+}
+
+#[test]
+fn test_admin_can_update_pragma_oracle() {
+    let (market, address) = deploy_market();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let oracle: ContractAddress = 70.try_into().unwrap();
+
+    start_cheat_caller_address(address, admin);
+    market.set_pragma_oracle(oracle);
+
+    assert(market.get_pragma_oracle() == oracle, 'ORACLE_NOT_UPDATED');
+}
+
+#[test]
+#[should_panic(expected: 'NOT_ADMIN')]
+fn test_non_admin_cannot_update_migration_target() {
+    let (market, address) = deploy_market();
+    let user: ContractAddress = 50.try_into().unwrap();
+
+    start_cheat_caller_address(address, user);
+    market.set_migration_target_usd(50_000);
+}
+
+#[test]
+fn test_can_migrate_uses_pragma_usd_price() {
+    let token: ContractAddress = 40.try_into().unwrap();
+    let oracle: ContractAddress = 70.try_into().unwrap();
+    let admin: ContractAddress = 10.try_into().unwrap();
+    let strk: ContractAddress = 30.try_into().unwrap();
+
+    let (market, address) = deploy_market();
+
+    start_cheat_caller_address(address, admin);
+    market.set_pragma_oracle(oracle);
+
+    start_mock_call(
+        oracle,
+        selector!("get_data_median"),
+        PragmaPricesResponse {
+            price: 4_000_000,
+            decimals: 8,
+            last_updated_timestamp: 0,
+            num_sources_aggregated: 1,
+            expiration_timestamp: None,
+        },
+    );
+
+    mock_call(token, selector!("transfer_from"), true, 1);
+    mock_call(strk, selector!("transfer_from"), true, 1);
+
+    market.create_market(
+        token,
+        1000,
+        1_100_000_000_000_000_000_000_000,
+    );
+
+    assert(market.can_migrate(token), 'ORACLE_THRESHOLD_FAILED');
 }

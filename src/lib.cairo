@@ -41,3 +41,4 @@ mod test_erc20;
 pub mod wowo_amm_pool;
 
 mod wowo_ekubo_migration;
+pub mod pragma_oracle;
