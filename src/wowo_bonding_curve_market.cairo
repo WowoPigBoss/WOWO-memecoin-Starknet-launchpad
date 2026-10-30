@@ -8,7 +8,8 @@ self: @TContractState,
 token: ContractAddress,
 ) -> (u256, u256);
 fn can_migrate(self: @TContractState, token: ContractAddress) -> bool;
-fn begin_migration(ref self: TContractState, token: ContractAddress);
+fn set_migration_contract(ref self: TContractState, migration: ContractAddress);
+fn begin_migration(ref self: TContractState, token: ContractAddress) -> (u256, u256);
 fn create_market(
 ref self: TContractState,
 token: ContractAddress,
@@ -53,6 +54,7 @@ struct Storage {
     admin: ContractAddress,
     treasury: ContractAddress,
     strk_token: ContractAddress,
+    migration_contract: ContractAddress,
     fee_bps: u16,
     initialized: Map<ContractAddress, bool>,
     token_reserve: Map<ContractAddress, u256>,
@@ -101,20 +103,52 @@ impl MarketImpl of IWowoBondingCurveMarket<ContractState> {
             >= 15_000_000_000_000_000_000_000_u256
     }
 
+    fn set_migration_contract(
+        ref self: ContractState,
+        migration: ContractAddress,
+    ) {
+        assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
+        assert(migration != 0, 'INVALID_MIGRATION');
+        assert(self.migration_contract.read() == 0, 'MIGRATION_ALREADY_SET');
+        self.migration_contract.write(migration);
+    }
+
     fn begin_migration(
         ref self: ContractState,
         token: ContractAddress,
-    ) {
-        assert(get_caller_address() == self.admin.read(), 'NOT_ADMIN');
+    ) -> (u256, u256) {
+        let migration = self.migration_contract.read();
+        assert(migration != 0, 'MIGRATION_NOT_SET');
+        assert(get_caller_address() == migration, 'NOT_MIGRATION');
         assert(self.initialized.entry(token).read(), 'NO_MARKET');
         assert(!self.migrated.entry(token).read(), 'ALREADY_MIGRATED');
         assert(!self.paused.entry(token).read(), 'ALREADY_PAUSED');
+
+        let token_amount = self.token_reserve.entry(token).read();
+        let strk_amount = self.strk_reserve.entry(token).read();
+
         assert(
-            self.strk_reserve.entry(token).read()
-                >= 15_000_000_000_000_000_000_000_u256,
+            strk_amount >= 15_000_000_000_000_000_000_000_u256,
             'MIGRATION_THRESHOLD_NOT_MET'
         );
+        assert(token_amount > 0, 'EMPTY_TOKEN_RESERVE');
+
+        let token_contract = IERC20Dispatcher {
+            contract_address: token
+        };
+        let strk_contract = IERC20Dispatcher {
+            contract_address: self.strk_token.read()
+        };
+
+        token_contract.assert_transfer(migration, token_amount);
+        strk_contract.assert_transfer(migration, strk_amount);
+
         self.paused.entry(token).write(true);
+        self.migrated.entry(token).write(true);
+        self.token_reserve.entry(token).write(0);
+        self.strk_reserve.entry(token).write(0);
+
+        (token_amount, strk_amount)
     }
 
     fn create_market(
