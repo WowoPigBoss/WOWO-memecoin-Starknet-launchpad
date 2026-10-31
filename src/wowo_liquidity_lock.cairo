@@ -170,7 +170,7 @@ pub mod WowoLiquidityLock {
                                                                                                                                                                                                                                                         get_contract_address(),
                                                                                                                                                                                                                                                                         token_id,
                                                                                                                                                                                                                     );
-            self.reentrancy_guard.write(false);
+
 
 
 
@@ -191,7 +191,9 @@ pub mod WowoLiquidityLock {
                                                                                                                                                                                                                                                                                                                             },
                                                                                                                                                                                                                                                                                                         );
 
-                                                                                                                                                                                                                                                                                                                    lock_id
+                                                                                                                                                                                                                                                                                                                    self.reentrancy_guard.write(false);
+
+            lock_id
                                                                                                     }
 
                                                                                                             fn withdraw(
@@ -231,7 +233,7 @@ pub mod WowoLiquidityLock {
         token_id,
     );
 
-    self.reentrancy_guard.write(false);
+
 
     self.emit(
         PositionUnlocked {
@@ -240,6 +242,8 @@ pub mod WowoLiquidityLock {
             position_id,
         },
     );
+
+    self.reentrancy_guard.write(false);
 }
 
 fn get_creator(
